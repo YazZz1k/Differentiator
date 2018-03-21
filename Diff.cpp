@@ -1,64 +1,14 @@
 #include"Diff.hpp"
 
-Tree* Create(Type type, int value, Tree* left, Tree* right)
+Tree* Create(Type type, const char* value, Tree* left, Tree* right)
 {
     Tree *ret = new Tree;
 
     ret->left  = left;
     ret->right = right;
     ret->type  = type;
-    ret->value = value;
+    strcpy(ret->value,value);
     return ret;
-}
-
-
-bool do_I_put_brackets(Tree* tree)
-{
-    if(tree->type==NUMBER) return false;
-    if(tree->type==VAR)    return false;
-    return true;
-}
-
-void print(Tree* current,FILE* file)
-{
-    bool put_brackets_left  = true,
-         put_brackets_right = true;
-
-    if(current->left!=NULL)
-    {
-        put_brackets_left  = do_I_put_brackets(current->left);
-
-        if(put_brackets_left)
-            fprintf(file, "(");
-
-        print(current->left, file);
-
-        if(put_brackets_left)
-            fprintf(file, ")");
-    }
-
-    switch(current->type)
-    {
-        case NUMBER: fprintf(file,"%lg", current->value); break;
-        case VAR   : fprintf(file,"x");         break;
-        case DIV   : fprintf(file,"/");         break;
-        case MUL   : fprintf(file,"*");         break;
-        case PLUS  : fprintf(file,"+");         break;
-        case MINUS : fprintf(file,"-");         break;
-    }
-
-    if(current->right!=NULL)
-    {
-        put_brackets_right  = do_I_put_brackets(current->right);
-
-        if(put_brackets_right)
-            fprintf(file,"(");
-
-        print(current->right, file);
-
-        if(put_brackets_right)
-            fprintf(file,")");
-    }
 }
 
 
@@ -66,7 +16,9 @@ Tree* copy(Tree* current)
 {
     if(current)
     {
-        Tree* ret = Create(current->type, current->value, copy(current->left), copy(current->right));
+        char value[MAX_LEN_VALUE];
+        strcpy(value, current->value);
+        Tree* ret = Create(current->type, value, copy(current->left), copy(current->right));
         return ret;
     }
     else
@@ -92,44 +44,45 @@ void destroy(Tree* current)
 
 Tree* Diff_NUMBER(Tree* tree)
 {
-    return Create(NUMBER, 0, NULL, NULL);
+    return Create(NUMBER, "0", NULL, NULL);
 }
 
 
 Tree* Diff_VAR(Tree* tree)
 {
-    return Create(NUMBER, 1, NULL, NULL);
+    return Create(NUMBER, "1", NULL, NULL);
 }
 
 
 Tree* Diff_MINUS(Tree* tree)  //left - right
 {
-    return Create(MINUS, 0, Diff(tree->left), Diff(tree->right));
+    return Create(OPERATOR, "-", Diff(tree->left), Diff(tree->right));
 }
 
 
 Tree* Diff_PLUS(Tree* tree)
 {
-    return Create(PLUS, 0, Diff(tree->left), Diff(tree->right));
+    return Create(OPERATOR, "+", Diff(tree->left), Diff(tree->right));
 }
 
 
 Tree* Diff_MUL(Tree* tree)
 {
-    Tree *left = Create(MUL, 0, Diff(copy(tree->left)), copy(tree->right)),
-         *right= Create(MUL, 0, copy(tree->left), Diff(copy(tree->right)));
+    Tree *left = Create(OPERATOR, "*", Diff(copy(tree->left)), copy(tree->right)),
+         *right= Create(OPERATOR, "*", copy(tree->left), Diff(copy(tree->right)));
 
-    return Create(PLUS, 0, left, right);
+    return Create(OPERATOR, "+", left, right);
 }
 
 
-Tree* Diff_POW(Tree* tree) //слева - основание степениб справа - показатель
+/*Tree* Diff_POW(Tree* tree) //слева - основание степениб справа - показатель
 {
-    Tree *left = Create(MUL, 0, Diff(copy(tree->left)), copy(tree->right)),
-         *right= Create(MUL, 0, copy(tree->left), Diff(copy(tree->right)));
+    Tree *left = Create(OPERATOR, "*", Diff(copy(tree->left)), copy(tree->right)),
+         *right= Create(OPERATOR, "*", copy(tree->left), Diff(copy(tree->right)));
 
-    return Create(PLUS, 0, left, right);
-}
+    return Create(OPERATOR, "+", left, right);
+}*/
+
 
 Tree* Diff_DIV(Tree* tree) //(f/g)'  <=> (left/right)'
 {
@@ -138,10 +91,29 @@ Tree* Diff_DIV(Tree* tree) //(f/g)'  <=> (left/right)'
          *df = Diff(f),
          *dg = Diff(g);
 
-    Tree *num = Create(MINUS, 0, Create(MUL, 0, df, g), Create(MUL, 0, f, dg)),
-         *den = Create(MUL, 0, copy(g), copy(g));
+    Tree *num = Create(OPERATOR, "-", Create(OPERATOR, "*", df, g), Create(OPERATOR, "*", f, dg)),
+         *den = Create(OPERATOR, "*", copy(g), copy(g));
 
-    return Create(DIV, 0, num, den);
+    return Create(OPERATOR, "/", num, den);
+}
+
+
+Tree* Diff_LN(Tree* tree)
+{
+    return Create(OPERATOR, "/", Diff(tree->right), copy(tree->right));
+}
+
+
+Tree* Diff_SIN(Tree* tree)
+{
+    return Create(OPERATOR, "*", Create(OPERATOR, "cos", NULL, copy(tree->right)), Diff(tree->right));
+}
+
+
+Tree* Diff_COS(Tree* tree)
+{
+    Tree* left = Create(OPERATOR, "*", Create(NUMBER, "-1", NULL, NULL), Create(OPERATOR, "cos", NULL, copy(tree->right)));
+    return Create(OPERATOR, "*", left, Diff(tree->right));
 }
 
 
@@ -153,11 +125,17 @@ Tree* Diff(Tree* tree)
     {
         case NUMBER: return Diff_NUMBER(tree);
         case VAR:    return Diff_VAR(tree);
-        case MINUS:  return Diff_MINUS(tree);
-        case PLUS:   return Diff_PLUS(tree);
-        case MUL:    return Diff_MUL(tree);
-        case DIV:    return Diff_DIV(tree);
+
+        case OPERATOR:
+            if(!strcmp("-",tree->value))   return Diff_MINUS(tree);
+            if(!strcmp("+",tree->value))   return Diff_PLUS(tree);
+            if(!strcmp("*",tree->value))   return Diff_MUL(tree);
+            if(!strcmp("/",tree->value))   return Diff_DIV(tree);
+            if(!strcmp("ln",tree->value))  return Diff_LN(tree);
+            if(!strcmp("sin",tree->value)) return Diff_SIN(tree);
+            if(!strcmp("cos",tree->value)) return Diff_COS(tree);
         default: printf("Не могу дифференцироать. Функция не описана\n");
     }
 }
+
 

@@ -1,11 +1,10 @@
 #include"Optim.hpp"
 
-
 bool Is_Zero(Tree* tree)
 {
     assert(tree!=NULL);
 
-    if((tree->type == NUMBER)&&(tree->value==0))
+    if((tree->type == NUMBER)&&(atof(tree->value)==0.0))
         return true;
     else
         return false;
@@ -15,7 +14,7 @@ bool Is_One(Tree* tree)
 {
      assert(tree!=NULL);
 
-    if((tree->type == NUMBER)&&(tree->value==1))
+    if((tree->type == NUMBER)&&(atof(tree->value)==1))
         return true;
     else
         return false;
@@ -34,21 +33,7 @@ bool Is_OPERATOR(Tree* tree)
 {
     assert(tree!=NULL);
 
-    switch(tree->type)
-    {
-        case PLUS  : return true;
-        case MINUS : return true;
-        case MUL   : return true;
-        case DIV   : return true;
-        case POW   : return true;
-        case LN    : return true;
-        case SIN   : return true;
-        case COS   : return true;
-        case TG    : return true;
-        case CTG   : return true;
-
-        default: printf("FUNC %d NE OPISAN V Is_Operator\n", tree->type);
-    }
+    return (tree->type == OPERATOR)?(true):(false);
 }
 
 
@@ -60,7 +45,7 @@ bool Is_VAR(Tree* tree)
 }
 
 
-void EASY_MUL(Tree* tree)
+int EASY_MUL(Tree* tree)
 {
     assert(tree->left !=NULL);
     assert(tree->right!=NULL);
@@ -71,90 +56,83 @@ void EASY_MUL(Tree* tree)
         destroy(tree->right);
 
         tree->type = NUMBER;
-        tree->value=0;
+        strcpy(tree->value, "0");
         tree->left = NULL;
         tree->right= NULL;
+
+        return 1;
     }
 
-    if(tree->left&&Is_One(tree->left))
+    if(Is_One(tree->left))
     {
         destroy(tree->left);
         Tree* tmp  = tree->right;
 
         tree->type = tree->right->type;
-        tree->value= tree->right->value;
+        strcpy(tree->value,tree->right->value);
         tree->left = tree->right->left;
         tree->right= tree->right->right;
 
         delete tmp;
+
+        return 1;
     }
 
-    if(tree->right&&Is_One(tree->right))
+    if(Is_One(tree->right))
     {
         destroy(tree->right);
         Tree* tmp  = tree->left;
 
         tree->type = tree->left->type;
-        tree->value= tree->left->value;
+        strcpy(tree->value, tree->left->value);
         tree->right= tree->left->right;
         tree->left = tree->left->left;
 
         delete tmp;
+
+        return 1;
     }
+
+    return 0;
 }
 
 
-void EASY_PLUS(Tree* tree)
+int EASY_PLUS(Tree* tree)
 {
     assert(tree-> left!=NULL);
     assert(tree->right!=NULL);
 
-    if(tree->left&&Is_Zero(tree->left))
+    if(Is_Zero(tree->left))
     {
         destroy(tree->left);
         Tree* tmp  = tree->right;
 
         tree->type = tree->right->type;
-        tree->value= tree->right->value;
+        strcpy(tree->value, tree->right->value);
         tree->left = tree->right->left;
         tree->right= tree->right->right;
 
         delete tmp;
+
+        return 1;
     }
 
-    if(tree->right&&Is_Zero(tree->right))
+    if(Is_Zero(tree->right))
     {
         destroy(tree->right);
         Tree* tmp  = tree->left;
 
         tree->type = tree->left->type;
-        tree->value= tree->left->value;
+        strcpy(tree->value, tree->left->value);
         tree->right= tree->left->right;
         tree->left = tree->left->left;
 
         delete tmp;
-    }
-}
 
-
-void EASY(Tree* tree)
-{
-    assert(tree!=NULL);
-
-    switch(tree->type)
-    {
-        case MUL:  EASY_MUL(tree);  break;
-        case PLUS: EASY_PLUS(tree); break;
+        return 1;
     }
 
-    if(tree)
-    {
-        if(tree->left)
-            EASY(tree->left);
-
-        if(tree->right)
-            EASY(tree->right);
-    }
+    return 0;
 }
 
 
@@ -186,8 +164,12 @@ void EASY_Calc_Constant_Tree(Tree* tree)
             destroy(tree->right);
 
             tree->type  = NUMBER;
-            tree->value = value;
 
+            char tmp_str[100];
+            sprintf(tmp_str, "%f", value);
+            tmp_str[9] = '\0';
+
+            strcpy(tree->value, tmp_str);
             tree->left = tree->right = NULL;
         }
     }
@@ -203,25 +185,53 @@ double EASY_Calc(Tree* current)   //считает дерево с конста�
 {
     switch(current->type)
     {
-        case NUMBER: return current->value;
-        case PLUS  : return EASY_Calc(current->left) + EASY_Calc(current->right);
-        case MINUS : return EASY_Calc(current->left) - EASY_Calc(current->right);
-        case MUL   : return EASY_Calc(current->left) * EASY_Calc(current->right);
-        case DIV   : return EASY_Calc(current->left) / EASY_Calc(current->right);
-        case POW   : return pow(EASY_Calc(current->left), EASY_Calc(current->right));
-        case LN    : return log(EASY_Calc(current->right));
-        case SIN   : return sin(EASY_Calc(current->right));
-        case COS   : return cos(EASY_Calc(current->right));
-        case TG    :
+        case NUMBER: return atof(current->value);
+        case OPERATOR:
+            if(!strcmp("+",current->value))   return EASY_Calc(current->left) + EASY_Calc(current->right);
+            if(!strcmp("-",current->value))   return EASY_Calc(current->left) - EASY_Calc(current->right);
+            if(!strcmp("*",current->value))   return EASY_Calc(current->left) * EASY_Calc(current->right);
+            if(!strcmp("/",current->value))   return EASY_Calc(current->left) / EASY_Calc(current->right);
+            if(!strcmp("^",current->value))   return pow(EASY_Calc(current->left), EASY_Calc(current->right));
+            if(!strcmp("ln",current->value))  return log(EASY_Calc(current->right));
+            if(!strcmp("sin",current->value)) return sin(EASY_Calc(current->right));
+            if(!strcmp("cos",current->value)) return cos(EASY_Calc(current->right));
+            if(!strcmp("tg",current->value))
             {
                 double a = EASY_Calc(current->right);
                 return sin(a)/cos(a);
             }
-        case CTG   :
+            if(!strcmp("ctg",current->value))
             {
                 double a = EASY_Calc(current->right);
                 return cos(a)/sin(a);
             }
-        default: printf("NAPISHI FUN"); return -1;
+
+            printf("NAPISHI FUN %s", current->value);
+            return -1;
+        }
+}
+
+
+void EASY(Tree* tree)
+{
+    assert(tree!=NULL);
+
+    if(tree->type == OPERATOR)
+    {
+        if(!strcmp("*", tree->value))
+        {
+            EASY_MUL(tree);
+        }
+        else if(!strcmp("+", tree->value))
+        {
+            EASY_PLUS(tree);
+        }
     }
+
+    if(tree->left!=NULL)
+        EASY(tree->left);
+
+    if(tree->right!=NULL)
+        EASY(tree->right);
+
 }
