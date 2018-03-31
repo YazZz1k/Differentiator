@@ -36,7 +36,6 @@ Arr_Token::Arr_Token(const Arr_Token& src)
          arr[i] = src.arr[i];
 }
 
-
 Arr_Token::~Arr_Token()
 {
     assert(arr!=NULL);
@@ -46,7 +45,7 @@ Arr_Token::~Arr_Token()
 
 token Arr_Token::operator [] (int index)
 {
-    if(index >= arr_len) {printf("Out of array\n"); exit(1);}
+    if(index >= arr_len) {printf("Out of token array \n"); exit(1);}
 
     return arr[index];
 }
@@ -66,7 +65,7 @@ void Arr_Token::push(token _token)
 }
 
 
-void Arr_Token::push(token_type type, char* value)
+void Arr_Token::push(token_type type,const char* value)
 {
     char copy_value[100];
     strcpy(copy_value, value);
@@ -81,6 +80,8 @@ static bool is_equal(const char* str1,const char* str2, int start)
     int i=0;
     while(str1[i]!='\0')
     {
+        if((start+i) ==  strlen(str2))
+            return false;
         if(str2[start+i] != str1[i])
             return false;
         i++;
@@ -89,7 +90,26 @@ static bool is_equal(const char* str1,const char* str2, int start)
     return true;
 }
 
-Arr_Token::Arr_Token(char* str)
+static void get_NUMBER(char* ret_str, const char* str, int start_index)
+{
+    int j=0;
+    bool get_point = false;
+
+    if(str[start_index] == '-')
+        ret_str[j++] = '-';
+
+    while(((str[start_index+j]>='0')&&(str[start_index+j]<='9'))||(str[start_index+j] == '.'))
+    {
+        if(str[start_index+j] == '.')
+            (get_point)?(printf("Встречено две точки во float числе, выражение неверно\n")) : (get_point = true);
+        ret_str[j] = str[start_index+j];
+        j++;
+    }
+
+    ret_str[j] = '\0';
+}
+
+Arr_Token::Arr_Token(const char* str)
 {
     arr_size = DEFAULT_LEN_ARR_TOKEN;
     arr_len  = 0;
@@ -99,32 +119,56 @@ Arr_Token::Arr_Token(char* str)
     {
         switch(str[i])
         {
-            case '+': this->push(OPERATOR, "+"); break;
-            case '-': this->push(OPERATOR, "-"); break;
-            case '*': this->push(OPERATOR, "*"); break;
-            case '/': this->push(OPERATOR, "/"); break;
-            case '^': this->push(OPERATOR, "^"); break;
+            case '+': push(T_OPERATOR, "+"); break;
+            case '*': push(T_OPERATOR, "*"); break;
+            case '/': push(T_OPERATOR, "/"); break;
+            case '^': push(T_OPERATOR, "^"); break;
 
-            case '(': this->push(BREACKET, "("); break;
-            case ')': this->push(BREACKET, ")"); break;
+            case '(': push(T_BRACKET, "("); break;
+            case ')': push(T_BRACKET, ")"); break;
+
+            case '-': push(T_OPERATOR, "-"); break;
+
+            case 'a':
+                if(is_equal("arccos", str, i))
+                {
+                    i+=5;
+                    push(T_OPERATOR, "arccos");
+                }
+                else if(is_equal("arcctg",str, i))
+                {
+                    i+=5;
+                    push(T_OPERATOR, "arcctg");
+                }
+                else if(is_equal("arctg", str, i))
+                {
+                    i+=4;
+                    push(T_OPERATOR, "arctg");
+                }
+                else if(is_equal("arcsin",str, i))
+                {
+                    i+=5;
+                    push(T_OPERATOR, "arcsin");
+                }
+                else
+                    push(T_VAR, "a");
+                break;
 
 
             case 'c':
                 if(is_equal("cos", str, i))
                 {
                     i+=2;
-                    this->push(OPERATOR, "cos");
+                    push(T_OPERATOR, "cos");
                 }
                 else
                 if(is_equal("ctg",str, i))
                 {
                     i+=2;
-                    this->push(OPERATOR, "ctg");
+                    push(T_OPERATOR, "ctg");
                 }
                 else
-                {
-                    this->push(VAR, "c");
-                }
+                    push(T_VAR, "c");
                 break;
 
 
@@ -132,12 +176,21 @@ Arr_Token::Arr_Token(char* str)
                 if(is_equal("ln", str, i))
                 {
                     i+=1;
-                    this->push(OPERATOR, "ln");
+                    push(T_OPERATOR, "ln");
                 }
                 else
+                    push(T_VAR, "l");
+                break;
+
+
+            case 'e':
+                if(is_equal("exp", str, i))
                 {
-                    this->push(VAR, "l");
+                    i+=2;
+                    push(T_OPERATOR, "exp");
                 }
+                else
+                    push(T_VAR, "e");
                 break;
 
 
@@ -145,8 +198,10 @@ Arr_Token::Arr_Token(char* str)
                 if(is_equal("sin", str, i))
                 {
                     i+=2;
-                    this->push(OPERATOR, "sin");
+                    push(T_OPERATOR, "sin");
                 }
+                else
+                    push(T_VAR, "s");
                 break;
 
 
@@ -154,35 +209,34 @@ Arr_Token::Arr_Token(char* str)
                 if(is_equal("tg", str, i))
                 {
                     i+=1;
-                    this->push(OPERATOR, "tg");
+                    push(T_OPERATOR, "tg");
                 }
                 else
                 {
-                    this->push(VAR, "t");
+                    push(T_VAR, "t");
                 }
                 break;
-
 
             default:
                 if((str[i]>='0')&&(str[i]<='9'))
                 {
                     char val[100];
-                    for(int j=0; (j+i<strlen(str))&&(j<100); j++) val[j] = str[j+i];
 
-                    sscanf(val,"%[0-9.]", val);
+                    get_NUMBER(val, str, i);
 
                     i+=strlen(val)-1;
-                    this->push(NUMBER, val);
+                    push(T_NUMBER, val);
                 }
                 else if((str[i]>='a')&&(str[i]<='z')||(str[i]>='a')&&(str[i]<='z'))
                 {
                     char val[2];
                     val[0] = str[i];
                     val[1] = '\0';
-                    this->push(VAR, val);
+                    push(T_VAR, val);
                 }
                 break;
 
         }
     }
 }
+

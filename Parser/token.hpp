@@ -6,16 +6,16 @@
 #include<stdio.h>
 #include<assert.h>
 
+
 #define MAX_LEN_TOKEN 10
 #define DEFAULT_LEN_ARR_TOKEN 128
 
-
 typedef enum
 {
-    OPERATOR,
-    VAR,
-    NUMBER,
-    BREACKET
+    T_OPERATOR,
+    T_VAR,
+    T_NUMBER,
+    T_BRACKET
 } token_type;
 
 
@@ -38,13 +38,19 @@ class Arr_Token
         int arr_len;   //количество символов в массиве
 
     public:
-        Arr_Token(char*);
+        Arr_Token(const char*);
         Arr_Token();
         Arr_Token(const Arr_Token&);
         ~Arr_Token();
         void push(token);
-        void push(token_type, char* value);
+        void push(token_type, const char* value);
+        void do_empty(){arr_len = 0;}
         token operator [] (int index);
+
+        int get_len()
+        {
+            return arr_len;
+        }
 
         void print()
         {
@@ -58,6 +64,7 @@ class Arr_Token
         }
 };
 
+static void get_NUMBER(char* str, const char* copy_str, int start_index); 
 static bool is_equal(const char* str1,const char* str2, int start);
 
 #endif
